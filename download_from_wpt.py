@@ -8,30 +8,21 @@ import urllib, json
 import urlparse
 import os.path
 import zlib
-import cloudstorage as gcs
 
 # Deal with limited data at the time,
 # metadata should virtually always come in one round.
-CHUNKSIZE=10 * 1024
+CHUNKSIZE=1024
 
 
-def PrintMetadata(file_response, out_file):
+def PrintMetadata(file_response, out_buffer):
   d = zlib.decompressobj(zlib.MAX_WBITS|32)
   trace_chunk = file_response.read(CHUNKSIZE)
 
   raw_trace_chunk = d.decompress(trace_chunk)
   print raw_trace_chunk
-  out_file.write(trace_chunk)
+  out_buffer.write(trace_chunk)
 
-def Main():
-  parser = argparse.ArgumentParser(description='Download traces from Webpagetest')
-  parser.add_argument('output_path',
-                     help='Output path')
-  args = parser.parse_args()
-
-  output_path = os.path.abspath(args.output_path)
-  print 'Output path: %s' % output_path
-
+def DownloadFromWPT(wpt_job, output_path):
   url = 'http://www.webpagetest.org/jsonResult.php?test=160421_5W_e5501a872437844eb053b831d3f0f17f'
 
   print 'Downloading results data from %s...' % url
@@ -56,6 +47,41 @@ def Main():
       out_file.write(file_response.read())
       out_file.close()
       #urllib.urlretrieve(trace_url, file_name)
+
+def ImportFromLocalFolder(local_path, output_path):
+  print 'Importing files from %s to %s' % (local_path, output_path)
+
+  for f in os.listdir(local_path):
+    in_path = os.path.join(local_path, f)
+    out_path = os.path.join(output_path, f)
+    print 'Importing %s to %s' % (in_path, out_path)
+    in_file = open(in_path, 'rb')
+    out_file = open(out_path, 'wb')
+
+    PrintMetadata(in_file, out_file)
+
+    out_file.write(in_file.read())
+
+    out_file.close()
+    in_file.close()
+
+def Main():
+  parser = argparse.ArgumentParser(description='Process traces')
+  parser.add_argument('output_path', help='Output path')
+  parser.add_argument('--local_path', help='Import files from local path')
+  parser.add_argument('--wpt_job', help='WebPageTest job ID')
+  args = parser.parse_args()
+
+  print 'import_path: %s' % str(args.local_path)
+
+  output_path = os.path.abspath(args.output_path)
+  print 'Output path: %s' % output_path
+
+  if args.local_path != None:
+    ImportFromLocalFolder(os.path.abspath(args.local_path), output_path)
+
+  if args.wpt_job != None:
+    DownloadFromWPT(args.wpt_job, output_path)
 
 if __name__ == '__main__':
   Main()
