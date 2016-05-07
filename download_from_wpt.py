@@ -29,8 +29,6 @@ def DownloadFromWPT(wpt_job, output_path):
   job_response = urllib.urlopen(url)
   job_data = json.load(job_response)
 
-  #print json.dumps(data, indent=4, sort_keys=True)
-
   for k,v in job_data['data']['runs'].iteritems():
     for a,b in v.iteritems():
       trace_url = b['rawData']['trace']
@@ -46,7 +44,6 @@ def DownloadFromWPT(wpt_job, output_path):
       PrintMetadata(file_response, out_file)
       out_file.write(file_response.read())
       out_file.close()
-      #urllib.urlretrieve(trace_url, file_name)
 
 def ImportFromLocalFolder(local_path, output_path):
   print 'Importing files from %s to %s' % (local_path, output_path)
