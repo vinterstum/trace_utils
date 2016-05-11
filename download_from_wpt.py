@@ -53,24 +53,6 @@ def DownloadFromWPT(wpt_job, output_path):
           output_path, file_name, metadata, file_response.read())
 
 
-def ImportFromLocalFolder(local_path, output_path):
-  print 'Importing files from %s to %s' % (local_path, output_path)
-
-  for f in os.listdir(local_path):
-    in_path = os.path.join(local_path, f)
-    out_path = os.path.join(output_path, f)
-    print 'Importing %s to %s' % (in_path, out_path)
-    in_file = open(in_path, 'rb')
-    out_file = open(out_path, 'wb')
-
-    PrintMetadata(in_file, out_file)
-
-    out_file.write(in_file.read())
-
-    out_file.close()
-    in_file.close()
-
-
 def Main():
   parser = argparse.ArgumentParser(description='Process traces')
   parser.add_argument('output_path', help='Output path')
