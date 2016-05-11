@@ -4,46 +4,54 @@
 # found in the LICENSE file.
 
 import argparse
-import urllib, json
+import json
+import os
+import urllib
 import urlparse
-import os.path
 import zlib
 
-# Deal with limited data at the time,
-# metadata should virtually always come in one round.
-CHUNKSIZE=1024
 
+WPT_TEST_URL = 'http://www.webpagetest.org/jsonResult.php?test={wpt_job}'
+ERROR_MISSING_WPT_JOBS = """WPT Job Ids not specified!
 
-def PrintMetadata(file_response, out_buffer):
-  d = zlib.decompressobj(zlib.MAX_WBITS|32)
-  trace_chunk = file_response.read(CHUNKSIZE)
+Use --wpt_jobs to specify a list of comma separated ids.
 
-  raw_trace_chunk = d.decompress(trace_chunk)
-  print raw_trace_chunk
-  out_buffer.write(trace_chunk)
+ie. python download_from_wpt.py --wpt_jobs 1,2,3 output_dir/
+"""
+
+def WriteMetadataAndTraceToFile(
+    output_path, file_name, metadata, trace_contents):
+  file_name = os.path.join(output_path, file_name)
+
+  with open(os.path.join(output_path, file_name), 'wb') as f:
+    f.write(trace_contents)
+
+  with open(os.path.join(output_path, '%s.meta' % file_name), 'w') as f:
+    json.dump(metadata, f)
+
 
 def DownloadFromWPT(wpt_job, output_path):
-  url = 'http://www.webpagetest.org/jsonResult.php?test=160421_5W_e5501a872437844eb053b831d3f0f17f'
-
-  print 'Downloading results data from %s...' % url
+  url = WPT_TEST_URL.format(wpt_job=wpt_job)
   job_response = urllib.urlopen(url)
   job_data = json.load(job_response)
+
+  blacklist = ['runs', 'median', 'average', 'standardDeviation']
+  metadata = dict(
+      [(k, v) for k, v in job_data['data'].iteritems() if not k in blacklist])
 
   for k,v in job_data['data']['runs'].iteritems():
     for a,b in v.iteritems():
       trace_url = b['rawData']['trace']
       parsed_url = urlparse.urlparse(trace_url)
       query = urlparse.parse_qsl(parsed_url.query)
-      file_name = os.path.join(output_path, query[2][1])
-      print 'Downloading %s to %s...' % (trace_url, file_name)
+      file_name = '%s_%s' % (wpt_job, query[2][1])
+      print 'Downloading %s to %s ...' % (trace_url, file_name)
 
       file_response = urllib.urlopen(trace_url)
 
-      out_file = open(file_name, 'wb')
+      WriteMetadataAndTraceToFile(
+          output_path, file_name, metadata, file_response.read())
 
-      PrintMetadata(file_response, out_file)
-      out_file.write(file_response.read())
-      out_file.close()
 
 def ImportFromLocalFolder(local_path, output_path):
   print 'Importing files from %s to %s' % (local_path, output_path)
@@ -62,23 +70,23 @@ def ImportFromLocalFolder(local_path, output_path):
     out_file.close()
     in_file.close()
 
+
 def Main():
   parser = argparse.ArgumentParser(description='Process traces')
   parser.add_argument('output_path', help='Output path')
-  parser.add_argument('--local_path', help='Import files from local path')
-  parser.add_argument('--wpt_job', help='WebPageTest job ID')
+  parser.add_argument('--wpt_jobs', help='WebPageTest Job IDs, comma separated')
   args = parser.parse_args()
 
-  print 'import_path: %s' % str(args.local_path)
-
   output_path = os.path.abspath(args.output_path)
-  print 'Output path: %s' % output_path
 
-  if args.local_path != None:
-    ImportFromLocalFolder(os.path.abspath(args.local_path), output_path)
+  if not args.wpt_jobs:
+    parser.exit(1, ERROR_MISSING_WPT_JOBS)
 
-  if args.wpt_job != None:
-    DownloadFromWPT(args.wpt_job, output_path)
+  wpt_jobs =  args.wpt_jobs.split(',')
+
+  for wpt_job in wpt_jobs:
+    DownloadFromWPT(wpt_job, output_path)
+
 
 if __name__ == '__main__':
   Main()
